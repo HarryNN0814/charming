@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch Làm Việc Charming</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #FFF5EE;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .container {
+            background-color: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(255, 190, 152, 0.2);
+            margin-top: 50px;
+            margin-bottom: 50px;
+        }
+        h1, h2, .card-title {
+            color: #FF7F50;
+            font-weight: bold;
+        }
+        .card {
+            margin-bottom: 20px;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            height: 100%;
+        }
+        .time-slot-free { background-color: #d4edda; }
+        .time-slot-busy { background-color: #f8d7da; }
+        .time-slot-lunch { background-color: #fff3cd; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">
+            <i class="fas fa-calendar-alt me-3"></i>Lịch Làm Việc Charming
+        </h1>
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-calendar-day me-2"></i>Chọn thời gian</h5>
+                        <input type="date" id="dateInput" class="form-control">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-chart-pie me-2"></i>Thống Kê</h5>
+                        <p>Tổng số công việc: <span id="totalEvents" class="badge bg-primary"></span></p>
+                        <p>Tư vấn: <span id="consultCount" class="badge bg-success"></span> ca</p>
+                        <p>Tái khám: <span id="followUpCount" class="badge bg-info"></span> ca</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-info-circle me-2"></i>Thông Tin</h5>
+                        <p><i class="fas fa-clock me-2"></i>Lịch làm việc Charming: 07:00 - 19:00</p>
+                        <p><i class="fas fa-bed me-2"></i>Thời gian bác sĩ nghỉ trưa: 12:00 - 14:00</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-clock me-2"></i>Phân Tích Theo Giờ</h5>
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Thời Gian</th>
+                                        <th>Trạng Thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="timeSlotsList"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-list me-2"></i>Chi Tiết Công Việc</h5>
+                        <ul id="eventList" class="list-group"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center mt-4">
+        <p>Copyright © 2024 - Bản quyền thuộc về TMV CHARMING</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        const API_KEY = 'AIzaSyBVLYqnFgWsI57W3Ux6gfrDCn06auXU4SY';
+        const CALENDAR_ID = 'wazomba10@gmail.com';
+        const WORK_START = 7;
+        const WORK_END = 19;
+        const LUNCH_START = 12;
+        const LUNCH_END = 14;
+
+        async function fetchEvents(date) {
+            try {
+                const startDate = new Date(date);
+                startDate.setHours(0, 0, 0, 0);
+                const endDate = new Date(date);
+                endDate.setHours(23, 59, 59, 999);
+
+                const url = `https://www.googleapis.com/calendar/v3/calendars/${CALENDAR_ID}/events?key=${API_KEY}&timeMin=${startDate.toISOString()}&timeMax=${endDate.toISOString()}&singleEvents=true&orderBy=startTime`;
+
+                const response = await axios.get(url);
+                return response.data.items;
+            } catch (error) {
+                console.error('Lỗi khi lấy dữ liệu sự kiện:', error);
+                alert('Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.');
+                return [];
+            }
+        }
+
+        function analyzeEvents(events) {
+            const totalEvents = events.length;
+            let consultCount = 0;
+            let followUpCount = 0;
+            let timeSlots = initializeTimeSlots();
+
+            document.getElementById('eventList').innerHTML = '';
+
+            events.forEach(event => {
+                const start = new Date(event.start.dateTime || event.start.date);
+                const end = new Date(event.end.dateTime || event.end.date);
+
+                if (start.getHours() < WORK_END && end.getHours() > WORK_START) {
+                    const adjustedStart = Math.max(start.getHours(), WORK_START);
+                    const adjustedEnd = Math.min(end.getHours(), WORK_END);
+
+                    updateTimeSlots(timeSlots, adjustedStart, adjustedEnd);
+
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    li.innerHTML = `<i class="far fa-clock me-2"></i>${formatTime(start)} - ${formatTime(end)}: ${event.summary}`;
+                    document.getElementById('eventList').appendChild(li);
+
+                    if (event.summary.toLowerCase().includes('tv')) {
+                        consultCount++;
+                    } else if (event.summary.toLowerCase().includes('tk')) {
+                        followUpCount++;
+                    }
+                }
+            });
+
+            document.getElementById('totalEvents').textContent = totalEvents;
+            document.getElementById('consultCount').textContent = consultCount;
+            document.getElementById('followUpCount').textContent = followUpCount;
+
+            displayTimeSlots(timeSlots);
+        }
+
+        function initializeTimeSlots() {
+            let slots = {};
+            for (let i = WORK_START; i < WORK_END; i++) {
+                slots[i] = 'Trống';
+            }
+            return slots;
+        }
+
+        function updateTimeSlots(slots, start, end) {
+            for (let i = start; i < end; i++) {
+                if (i >= WORK_START && i < WORK_END) {
+                    slots[i] = 'Bận';
+                }
+            }
+        }
+
+        function displayTimeSlots(slots) {
+            const timeSlotsList = document.getElementById('timeSlotsList');
+            timeSlotsList.innerHTML = '';
+
+            for (let i = WORK_START; i < WORK_END; i++) {
+                const row = document.createElement('tr');
+                let status = slots[i];
+                let className = 'time-slot-free';
+                let icon = '<i class="fas fa-check-circle text-success"></i>';
+
+                if (i >= LUNCH_START && i < LUNCH_END) {
+                    status = 'Nghỉ trưa';
+                    className = 'time-slot-lunch';
+                    icon = '<i class="fas fa-bed text-warning"></i>';
+                } else if (status === 'Bận') {
+                    className = 'time-slot-busy';
+                    icon = '<i class="fas fa-times-circle text-danger"></i>';
+                }
+
+                row.className = className;
+                row.innerHTML = `
+                    <td><i class="far fa-clock me-2"></i>${i.toString().padStart(2, '0')}:00 - ${(i+1).toString().padStart(2, '0')}:00</td>
+                    <td>${icon} ${status}</td>
+                `;
+                timeSlotsList.appendChild(row);
+            }
+        }
+
+        function formatTime(date) {
+            return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        async function updateCalendar() {
+            const selectedDate = document.getElementById('dateInput').value;
+            if (selectedDate) {
+                const events = await fetchEvents(selectedDate);
+                analyzeEvents(events);
+            }
+        }
+
+        document.getElementById('dateInput').addEventListener('change', updateCalendar);
+
+        // Khởi tạo với ngày hôm nay
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('dateInput').value = today;
+        updateCalendar();
+    </script>
+</body>
+</html>

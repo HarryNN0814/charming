@@ -57,6 +57,7 @@
                         <p>Tổng số công việc: <span id="totalEvents" class="badge bg-primary"></span></p>
                         <p>Tư vấn: <span id="consultCount" class="badge bg-success"></span> ca</p>
                         <p>Tái khám: <span id="followUpCount" class="badge bg-info"></span> ca</p>
+                        <p>Phẫu thuật: <span id="surgeryCount" class="badge bg-danger"></span> ca</p>
                     </div>
                 </div>
             </div>
@@ -131,13 +132,23 @@
             }
         }
 
-        function analyzeEvents(events) {
+        function analyzeEvents(events, selectedDate) {
             const totalEvents = events.length;
             let consultCount = 0;
             let followUpCount = 0;
+            let surgeryCount = 0;
             let timeSlots = initializeTimeSlots();
 
             document.getElementById('eventList').innerHTML = '';
+
+            const selectedDay = new Date(selectedDate).getDay();
+            const isSunday = selectedDay === 0;
+            const isDoctorOff = events.some(event => event.summary.toLowerCase().includes('bs off'));
+
+            if (isSunday) {
+                displayDoctorOffMessage(true);
+                return;
+            }
 
             events.forEach(event => {
                 const start = new Date(event.start.dateTime || event.start.date);
@@ -147,40 +158,45 @@
                     const adjustedStart = Math.max(start.getHours(), WORK_START);
                     const adjustedEnd = Math.min(end.getHours(), WORK_END);
 
-                    updateTimeSlots(timeSlots, adjustedStart, adjustedEnd);
+                    const eventType = getEventType(event.summary);
+                    updateTimeSlots(timeSlots, adjustedStart, adjustedEnd, eventType);
 
                     const li = document.createElement('li');
                     li.className = 'list-group-item';
                     li.innerHTML = `<i class="far fa-clock me-2"></i>${formatTime(start)} - ${formatTime(end)}: ${event.summary}`;
                     document.getElementById('eventList').appendChild(li);
 
-                    if (event.summary.toLowerCase().includes('tv')) {
-                        consultCount++;
-                    } else if (event.summary.toLowerCase().includes('tk')) {
-                        followUpCount++;
-                    }
+                    if (eventType === 'Tư vấn / Tái khám') {
+                        if (event.summary.toLowerCase().includes('tv')) consultCount++;
+                        else if (event.summary.toLowerCase().includes('tk')) followUpCount++;
+                    } else if (eventType === 'Phẫu thuật') surgeryCount++;
                 }
             });
 
             document.getElementById('totalEvents').textContent = totalEvents;
             document.getElementById('consultCount').textContent = consultCount;
             document.getElementById('followUpCount').textContent = followUpCount;
+            document.getElementById('surgeryCount').textContent = surgeryCount;
 
-            displayTimeSlots(timeSlots);
+            if (isDoctorOff) {
+                displayDoctorOffMessage(false);
+            } else {
+                displayTimeSlots(timeSlots);
+            }
         }
 
         function initializeTimeSlots() {
             let slots = {};
             for (let i = WORK_START; i < WORK_END; i++) {
-                slots[i] = 'Trống';
+                slots[i] = 'Chưa có lịch';
             }
             return slots;
         }
 
-        function updateTimeSlots(slots, start, end) {
+        function updateTimeSlots(slots, start, end, eventType) {
             for (let i = start; i < end; i++) {
                 if (i >= WORK_START && i < WORK_END) {
-                    slots[i] = 'Bận';
+                    slots[i] = eventType;
                 }
             }
         }
@@ -199,9 +215,9 @@
                     status = 'Nghỉ trưa';
                     className = 'time-slot-lunch';
                     icon = '<i class="fas fa-bed text-warning"></i>';
-                } else if (status === 'Bận') {
+                } else if (status !== 'Chưa có lịch') {
                     className = 'time-slot-busy';
-                    icon = '<i class="fas fa-times-circle text-danger"></i>';
+                    icon = getEventIcon(status);
                 }
 
                 row.className = className;
@@ -213,6 +229,30 @@
             }
         }
 
+        function getEventType(summary) {
+            const lowercaseSummary = summary.toLowerCase();
+            if (lowercaseSummary.includes('tv') || lowercaseSummary.includes('tk')) return 'Tư vấn / Tái khám';
+            return 'Phẫu thuật';
+        }
+
+        function getEventIcon(eventType) {
+            switch (eventType) {
+                case 'Tư vấn / Tái khám': return '<i class="fas fa-user-md text-primary"></i>';
+                case 'Phẫu thuật': return '<i class="fas fa-procedures text-danger"></i>';
+                default: return '<i class="fas fa-times-circle text-secondary"></i>';
+            }
+        }
+
+        function displayDoctorOffMessage(isSunday) {
+            const message = isSunday ? 'Chủ nhật là ngày nghỉ của Bác sĩ.' : 'Bác sĩ không trực vào ngày này.';
+            document.getElementById('timeSlotsList').innerHTML = `<tr><td colspan="2" class="text-center">${message}</td></tr>`;
+            // Không xóa nội dung của eventList ở đây
+            document.getElementById('totalEvents').textContent = '0';
+            document.getElementById('consultCount').textContent = '0';
+            document.getElementById('followUpCount').textContent = '0';
+            document.getElementById('surgeryCount').textContent = '0';
+        }
+
         function formatTime(date) {
             return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
         }
@@ -221,7 +261,7 @@
             const selectedDate = document.getElementById('dateInput').value;
             if (selectedDate) {
                 const events = await fetchEvents(selectedDate);
-                analyzeEvents(events);
+                analyzeEvents(events, selectedDate);
             }
         }
 

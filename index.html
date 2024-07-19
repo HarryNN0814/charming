@@ -32,6 +32,19 @@
         .time-slot-free { background-color: #d4edda; }
         .time-slot-busy { background-color: #f8d7da; }
         .time-slot-lunch { background-color: #fff3cd; }
+        .event-item {
+            cursor: pointer;
+        }
+        .event-item:hover {
+            background-color: #f8f9fa;
+        }
+        .event-details {
+            display: none;
+            padding: 10px;
+            background-color: #f1f3f5;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -105,6 +118,7 @@
         <p>Copyright © 2024 - Bản quyền thuộc về TMV CHARMING</p>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
         const API_KEY = 'AIzaSyBVLYqnFgWsI57W3Ux6gfrDCn06auXU4SY';
@@ -162,8 +176,17 @@
                     updateTimeSlots(timeSlots, adjustedStart, adjustedEnd, eventType);
 
                     const li = document.createElement('li');
-                    li.className = 'list-group-item';
-                    li.innerHTML = `<i class="far fa-clock me-2"></i>${formatTime(start)} - ${formatTime(end)}: ${event.summary}`;
+                    li.className = 'list-group-item event-item';
+                    li.innerHTML = `
+                        <div class="event-summary">
+                            <i class="far fa-clock me-2"></i>${formatTime(start)} - ${formatTime(end)}: ${event.summary}
+                        </div>
+                        <div class="event-details">
+                            <p><strong>Thời gian:</strong> ${formatDateTime(start)} – ${formatDateTime(end)}</p>
+                            <p><strong>Mô tả:</strong> ${event.description || 'Không có mô tả.'}</p>
+                        </div>
+                    `;
+                    li.querySelector('.event-summary').addEventListener('click', () => toggleEventDetails(li));
                     document.getElementById('eventList').appendChild(li);
 
                     if (eventType === 'Tư vấn / Tái khám') {
@@ -246,7 +269,6 @@
         function displayDoctorOffMessage(isSunday) {
             const message = isSunday ? 'Chủ nhật là ngày nghỉ của Bác sĩ.' : 'Bác sĩ không trực vào ngày này.';
             document.getElementById('timeSlotsList').innerHTML = `<tr><td colspan="2" class="text-center">${message}</td></tr>`;
-            // Không xóa nội dung của eventList ở đây
             document.getElementById('totalEvents').textContent = '0';
             document.getElementById('consultCount').textContent = '0';
             document.getElementById('followUpCount').textContent = '0';
@@ -255,6 +277,16 @@
 
         function formatTime(date) {
             return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatDateTime(date) {
+            const options = { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' };
+            return date.toLocaleDateString('vi-VN', options);
+        }
+
+        function toggleEventDetails(eventItem) {
+            const details = eventItem.querySelector('.event-details');
+            details.style.display = details.style.display === 'none' ? 'block' : 'none';
         }
 
         async function updateCalendar() {

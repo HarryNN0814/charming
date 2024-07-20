@@ -6,6 +6,7 @@
     <title>Lịch Làm Việc Charming</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             background-color: #FFF5EE;
@@ -45,6 +46,45 @@
             border-radius: 5px;
             margin-top: 10px;
         }
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+        }
+        .stat-card i {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        .stat-card .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        .stat-card .stat-label {
+            font-size: 1.5em;
+            color: #0f0f0f;
+            font-weight: bold;
+            padding-bottom: 1px;
+        }
+        .comparison {
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+        .comparison.positive {
+            color: #28a745;
+        }
+        .comparison.negative {
+            color: #dc3545;
+        }
+        #monthlyView {
+            display: none;
+        }
+        #dayViewBtn, #monthViewBtn {
+            transition: all 0.3s ease;
+        }
+        #dayViewBtn.active, #monthViewBtn.active {
+            background-color: #FF7F50;
+            border-color: #FF7F50;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -56,57 +96,123 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title"><i class="fas fa-calendar-day me-2"></i>Chọn thời gian</h5>
-                        <input type="date" id="dateInput" class="form-control">
+                        <h5 class="card-title"><i class="fas fa-calendar-day me-2"></i>Chọn chế độ xem</h5>
+                        <div class="d-flex justify-content-between mb-3">
+                            <button id="dayViewBtn" class="btn btn-primary flex-grow-1 me-2">Xem theo ngày</button>
+                            <button id="monthViewBtn" class="btn btn-outline-primary flex-grow-1">Xem theo tháng</button>
+                        </div>
+                        <div id="dayInput">
+                            <input type="date" id="dateInput" class="form-control">
+                        </div>
+                        <div id="monthInput" style="display:none;">
+                            <input type="month" id="monthInputField" class="form-control">
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="fas fa-chart-pie me-2"></i>Thống Kê</h5>
-                        <p>Tổng số công việc: <span id="totalEvents" class="badge bg-primary"></span></p>
-                        <p>Tư vấn: <span id="consultCount" class="badge bg-success"></span> ca</p>
-                        <p>Tái khám: <span id="followUpCount" class="badge bg-info"></span> ca</p>
-                        <p>Phẫu thuật: <span id="surgeryCount" class="badge bg-danger"></span> ca</p>
+        
+        <!-- Daily View -->
+        <div id="dailyView">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-chart-pie me-2"></i>Thống Kê</h5>
+                            <p>Tổng số công việc: <span id="totalEvents" class="badge bg-primary"></span></p>
+                            <p>Tư vấn: <span id="consultCount" class="badge bg-success"></span> ca</p>
+                            <p>Tái khám: <span id="followUpCount" class="badge bg-info"></span> ca</p>
+                            <p>Phẫu thuật: <span id="surgeryCount" class="badge bg-danger"></span> ca</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-info-circle me-2"></i>Thông Tin</h5>
+                            <p><i class="fas fa-clock me-2"></i>Lịch làm việc Charming: 07:00 - 19:00</p>
+                            <p><i class="fas fa-bed me-2"></i>Thời gian bác sĩ nghỉ trưa: 12:00 - 14:00</p>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="fas fa-info-circle me-2"></i>Thông Tin</h5>
-                        <p><i class="fas fa-clock me-2"></i>Lịch làm việc Charming: 07:00 - 19:00</p>
-                        <p><i class="fas fa-bed me-2"></i>Thời gian bác sĩ nghỉ trưa: 12:00 - 14:00</p>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-list me-2"></i>Chi Tiết Công Việc</h5>
+                            <ul id="eventList" class="list-group"></ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-clock me-2"></i>Phân Tích Theo Giờ</h5>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Thời Gian</th>
+                                            <th>Trạng Thái</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="timeSlotsList"></tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="fas fa-list me-2"></i>Chi Tiết Công Việc</h5>
-                        <ul id="eventList" class="list-group"></ul>
+
+        <!-- Monthly View -->
+        <div id="monthlyView">
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stat-card">
+                        <div class="stat-label">Tổng số công việc</div>
+                        <i class="fas fa-tasks text-primary"></i>
+                        <div class="stat-value" id="monthlyTotalEvents"></div>
+                        <div class="comparison" id="totalComparison"></div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card">
+                        <div class="stat-label">Tư vấn</div>
+                        <i class="fas fa-user-md text-success"></i>
+                        <div class="stat-value" id="monthlyConsultCount"></div>
+                        <div class="comparison" id="consultComparison"></div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card">
+                        <div class="stat-label">Tái khám</div>
+                        <i class="fas fa-clipboard-check text-info"></i>
+                        <div class="stat-value" id="monthlyFollowUpCount"></div>
+                        <div class="comparison" id="followUpComparison"></div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card">
+                        <div class="stat-label">Phẫu thuật</div>
+                        <i class="fas fa-procedures text-danger"></i>
+                        <div class="stat-value" id="monthlySurgeryCount"></div>
+                        <div class="comparison" id="surgeryComparison"></div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="fas fa-clock me-2"></i>Phân Tích Theo Giờ</h5>
-                        <div class="table-responsive">
-                            <table class="table table-bordered">
-                                <thead>
-                                    <tr>
-                                        <th>Thời Gian</th>
-                                        <th>Trạng Thái</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="timeSlotsList"></tbody>
-                            </table>
+            <div class="row mb-4">
+                <div class="col-12">
+                    <p class="text-muted fst-italic">*So với cùng kỳ năm trước</p>
+                </div>
+            </div>
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-chart-bar me-2"></i>Biểu đồ phân tích công việc theo tháng tại Charming</h5>
+                            <canvas id="monthlyChart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -128,6 +234,7 @@
         const LUNCH_START = 12;
         const LUNCH_END = 14;
 
+        // Daily View Functions
         async function fetchEvents(date) {
             try {
                 const startDate = new Date(date);
@@ -224,85 +331,285 @@
             }
         }
 
-        function displayTimeSlots(slots) {
-            const timeSlotsList = document.getElementById('timeSlotsList');
-            timeSlotsList.innerHTML = '';
+function displayTimeSlots(slots) {
+    const timeSlotsList = document.getElementById('timeSlotsList');
+    timeSlotsList.innerHTML = '';
 
-            for (let i = WORK_START; i < WORK_END; i++) {
-                const row = document.createElement('tr');
-                let status = slots[i];
-                let className = 'time-slot-free';
-                let icon = '<i class="fas fa-check-circle text-success"></i>';
+    for (let i = WORK_START; i < WORK_END; i++) {
+        const row = document.createElement('tr');
+        let status = slots[i];
+        let className = 'time-slot-free';
+        let icon = '<i class="fas fa-check-circle text-success"></i>';
 
-                if (i >= LUNCH_START && i < LUNCH_END) {
-                    status = 'Nghỉ trưa';
-                    className = 'time-slot-lunch';
-                    icon = '<i class="fas fa-bed text-warning"></i>';
-                } else if (status !== 'Chưa có lịch') {
-                    className = 'time-slot-busy';
-                    icon = getEventIcon(status);
+        if (i >= LUNCH_START && i < LUNCH_END) {
+            status = 'Nghỉ trưa';
+            className = 'time-slot-lunch';
+            icon = '<i class="fas fa-bed text-warning"></i>';
+        } else if (status !== 'Chưa có lịch') {
+            className = 'time-slot-busy';
+            icon = getEventIcon(status);
+        }
+
+        row.className = className;
+        row.innerHTML = `
+            <td><i class="far fa-clock me-2"></i>${i.toString().padStart(2, '0')}:00 - ${(i+1).toString().padStart(2, '0')}:00</td>
+            <td>${icon} ${status}</td>
+        `;
+        timeSlotsList.appendChild(row);
+    }
+}
+
+function getEventType(summary) {
+    const lowercaseSummary = summary.toLowerCase();
+    if (lowercaseSummary.includes('tv') || lowercaseSummary.includes('tk')) return 'Tư vấn / Tái khám';
+    return 'Phẫu thuật';
+}
+
+function getEventIcon(eventType) {
+    switch (eventType) {
+        case 'Tư vấn / Tái khám': return '<i class="fas fa-user-md text-primary"></i>';
+        case 'Phẫu thuật': return '<i class="fas fa-procedures text-danger"></i>';
+        default: return '<i class="fas fa-times-circle text-secondary"></i>';
+    }
+}
+
+function displayDoctorOffMessage(isSunday) {
+    const message = isSunday ? 'Chủ nhật là ngày nghỉ của Bác sĩ.' : 'Bác sĩ không trực vào ngày này.';
+    document.getElementById('timeSlotsList').innerHTML = `<tr><td colspan="2" class="text-center">${message}</td></tr>`;
+    document.getElementById('totalEvents').textContent = '0';
+    document.getElementById('consultCount').textContent = '0';
+    document.getElementById('followUpCount').textContent = '0';
+    document.getElementById('surgeryCount').textContent = '0';
+}
+
+function formatTime(date) {
+    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDateTime(date) {
+    const options = { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' };
+    return date.toLocaleDateString('vi-VN', options);
+}
+
+function toggleEventDetails(eventItem) {
+    const details = eventItem.querySelector('.event-details');
+    details.style.display = details.style.display === 'none' ? 'block' : 'none';
+}
+
+// Monthly View Functions
+async function fetchMonthlyEvents(year, month) {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+    
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${CALENDAR_ID}/events?key=${API_KEY}&timeMin=${startDate.toISOString()}&timeMax=${endDate.toISOString()}&singleEvents=true&orderBy=startTime`;
+
+    try {
+        const response = await axios.get(url);
+        return response.data.items;
+    } catch (error) {
+        console.error('Lỗi khi lấy dữ liệu sự kiện tháng:', error);
+        alert('Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.');
+        return [];
+    }
+}
+
+function analyzeMonthlyEvents(events) {
+    let monthlyTotals = { total: 0, consult: 0, followUp: 0, surgery: 0 };
+    let dailyStats = {};
+
+    events.forEach(event => {
+        const date = new Date(event.start.dateTime || event.start.date).toISOString().split('T')[0];
+        if (!dailyStats[date]) {
+            dailyStats[date] = { total: 0, consult: 0, followUp: 0, surgery: 0 };
+        }
+
+        dailyStats[date].total++;
+        monthlyTotals.total++;
+
+        const eventType = getEventType(event.summary);
+        if (eventType === 'Tư vấn / Tái khám') {
+            if (event.summary.toLowerCase().includes('tv')) {
+                dailyStats[date].consult++;
+                monthlyTotals.consult++;
+            } else if (event.summary.toLowerCase().includes('tk')) {
+                dailyStats[date].followUp++;
+                monthlyTotals.followUp++;
+            }
+        } else if (eventType === 'Phẫu thuật') {
+            dailyStats[date].surgery++;
+            monthlyTotals.surgery++;
+        }
+    });
+
+    return { dailyStats, monthlyTotals };
+}
+
+function createMonthlyChart(stats, selectedYear, selectedMonth) {
+    const ctx = document.getElementById('monthlyChart').getContext('2d');
+    const dates = Object.keys(stats).sort();
+    const datasets = [
+        {
+            label: 'Tổng số công việc',
+            data: dates.map(date => stats[date].total),
+            backgroundColor: '#007bff',
+            type: 'bar'
+        },
+        {
+            label: 'Tư vấn',
+            data: dates.map(date => stats[date].consult),
+            backgroundColor: '#28a745',
+            type: 'bar'
+        },
+        {
+            label: 'Tái khám',
+            data: dates.map(date => stats[date].followUp),
+            backgroundColor: '#17a2b8',
+            type: 'bar'
+        },
+        {
+            label: 'Phẫu thuật',
+            data: dates.map(date => stats[date].surgery),
+            backgroundColor: '#dc3545',
+            type: 'bar'
+        }
+    ];
+
+    if (window.myChart) {
+        window.myChart.destroy();
+    }
+
+    const monthNames = [
+        "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
+        "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
+    ];
+
+    window.myChart = new Chart(ctx, {
+        type: 'bar',
+        data: { 
+            labels: dates.map(date => date.split('-')[2]), // Chỉ hiển thị ngày
+            datasets: datasets 
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'top' },
+                title: { 
+                    display: true, 
+                    text: `Khối lượng công việc trong ${monthNames[selectedMonth - 1]} năm ${selectedYear}`
                 }
-
-                row.className = className;
-                row.innerHTML = `
-                    <td><i class="far fa-clock me-2"></i>${i.toString().padStart(2, '0')}:00 - ${(i+1).toString().padStart(2, '0')}:00</td>
-                    <td>${icon} ${status}</td>
-                `;
-                timeSlotsList.appendChild(row);
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: `Ngày trong ${monthNames[selectedMonth - 1]} năm ${selectedYear}`
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Số lượng công việc'
+                    }
+                }
             }
         }
+    });
+}
 
-        function getEventType(summary) {
-            const lowercaseSummary = summary.toLowerCase();
-            if (lowercaseSummary.includes('tv') || lowercaseSummary.includes('tk')) return 'Tư vấn / Tái khám';
-            return 'Phẫu thuật';
+function updateMonthlyTotals(currentTotals, previousTotals) {
+    document.getElementById('monthlyTotalEvents').textContent = currentTotals.total;
+    document.getElementById('monthlyConsultCount').textContent = currentTotals.consult;
+    document.getElementById('monthlyFollowUpCount').textContent = currentTotals.followUp;
+    document.getElementById('monthlySurgeryCount').textContent = currentTotals.surgery;
+
+    updateComparison('totalComparison', currentTotals.total, previousTotals.total);
+    updateComparison('consultComparison', currentTotals.consult, previousTotals.consult);
+    updateComparison('followUpComparison', currentTotals.followUp, previousTotals.followUp);
+    updateComparison('surgeryComparison', currentTotals.surgery, previousTotals.surgery);
+}
+
+function updateComparison(elementId, currentValue, previousValue) {
+    const difference = currentValue - previousValue;
+    const percentChange = previousValue !== 0 ? (difference / previousValue * 100).toFixed(1) : 100;
+    const element = document.getElementById(elementId);
+    
+    if (difference > 0) {
+        element.textContent = `▲ ${percentChange}%`;
+        element.classList.add('positive');
+        element.classList.remove('negative');
+    } else if (difference < 0) {
+        element.textContent = `▼ ${Math.abs(percentChange)}%`;
+        element.classList.add('negative');
+        element.classList.remove('positive');
+    } else {
+        element.textContent = '0%';
+        element.classList.remove('positive', 'negative');
+    }
+}
+
+async function updateCalendar() {
+    const viewMode = document.getElementById('dayViewBtn').classList.contains('active') ? 'day' : 'month';
+    if (viewMode === 'day') {
+        const selectedDate = document.getElementById('dateInput').value;
+        if (selectedDate) {
+            const events = await fetchEvents(selectedDate);
+            analyzeEvents(events, selectedDate);
         }
+    } else {
+        const selectedMonth = document.getElementById('monthInputField').value;
+        if (selectedMonth) {
+            const [year, month] = selectedMonth.split('-');
+            const currentEvents = await fetchMonthlyEvents(year, month);
+            const { dailyStats: currentDailyStats, monthlyTotals: currentMonthlyTotals } = analyzeMonthlyEvents(currentEvents);
 
-        function getEventIcon(eventType) {
-            switch (eventType) {
-                case 'Tư vấn / Tái khám': return '<i class="fas fa-user-md text-primary"></i>';
-                case 'Phẫu thuật': return '<i class="fas fa-procedures text-danger"></i>';
-                default: return '<i class="fas fa-times-circle text-secondary"></i>';
-            }
+            const previousYear = parseInt(year) - 1;
+            const previousEvents = await fetchMonthlyEvents(previousYear, month);
+            const { monthlyTotals: previousMonthlyTotals } = analyzeMonthlyEvents(previousEvents);
+
+            createMonthlyChart(currentDailyStats, year, month);
+            updateMonthlyTotals(currentMonthlyTotals, previousMonthlyTotals);
         }
+    }
+}
 
-        function displayDoctorOffMessage(isSunday) {
-            const message = isSunday ? 'Chủ nhật là ngày nghỉ của Bác sĩ.' : 'Bác sĩ không trực vào ngày này.';
-            document.getElementById('timeSlotsList').innerHTML = `<tr><td colspan="2" class="text-center">${message}</td></tr>`;
-            document.getElementById('totalEvents').textContent = '0';
-            document.getElementById('consultCount').textContent = '0';
-            document.getElementById('followUpCount').textContent = '0';
-            document.getElementById('surgeryCount').textContent = '0';
-        }
+function setViewMode(mode) {
+    const dayInput = document.getElementById('dayInput');
+    const monthInput = document.getElementById('monthInput');
+    const dailyView = document.getElementById('dailyView');
+    const monthlyView = document.getElementById('monthlyView');
+    const dayViewBtn = document.getElementById('dayViewBtn');
+    const monthViewBtn = document.getElementById('monthViewBtn');
 
-        function formatTime(date) {
-            return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-        }
+    if (mode === 'day') {
+        dayInput.style.display = 'block';
+        monthInput.style.display = 'none';
+        dailyView.style.display = 'block';
+        monthlyView.style.display = 'none';
+        dayViewBtn.classList.add('active');
+        monthViewBtn.classList.remove('active');
+    } else {
+        dayInput.style.display = 'none';
+        monthInput.style.display = 'block';
+        dailyView.style.display = 'none';
+        monthlyView.style.display = 'block';
+        dayViewBtn.classList.remove('active');
+        monthViewBtn.classList.add('active');
+    }
+    updateCalendar();
+}
 
-        function formatDateTime(date) {
-            const options = { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' };
-            return date.toLocaleDateString('vi-VN', options);
-        }
+document.getElementById('dayViewBtn').addEventListener('click', () => setViewMode('day'));
+document.getElementById('monthViewBtn').addEventListener('click', () => setViewMode('month'));
+document.getElementById('dateInput').addEventListener('change', updateCalendar);
+document.getElementById('monthInputField').addEventListener('change', updateCalendar);
 
-        function toggleEventDetails(eventItem) {
-            const details = eventItem.querySelector('.event-details');
-            details.style.display = details.style.display === 'none' ? 'block' : 'none';
-        }
-
-        async function updateCalendar() {
-            const selectedDate = document.getElementById('dateInput').value;
-            if (selectedDate) {
-                const events = await fetchEvents(selectedDate);
-                analyzeEvents(events, selectedDate);
-            }
-        }
-
-        document.getElementById('dateInput').addEventListener('change', updateCalendar);
-
-        // Khởi tạo với ngày hôm nay
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('dateInput').value = today;
-        updateCalendar();
-    </script>
+// Khởi tạo với ngày hôm nay
+const today = new Date();
+const currentMonth = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+document.getElementById('dateInput').value = today.toISOString().split('T')[0];
+document.getElementById('monthInputField').value = currentMonth;
+setViewMode('day');
+</script>
 </body>
 </html>
